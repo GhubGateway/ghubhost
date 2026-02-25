@@ -1,0 +1,136 @@
+#------------------------------------------------------------------------------------------------------------------------------
+# Dockerfile to build a Docker image for running the Ghub regdemos Jupyter notebook
+#
+# Component of: Ghub
+# Purpose: Run a Ghub Jupyter Notebook
+# Author: Renette Jones-Ivey
+# Date: February 2026
+#------------------------------------------------------------------------------------------------------------------------------
+# remove remove dangling build cache:
+#   docker builder prune
+
+# https://docs.docker.com/engine/reference/commandline/build/
+# --tag,-t Name
+#
+# build:
+#   docker image build -f ./containers/regdemos/Dockerfile.regdemos -t regdemosimage . 2>&1 | tee build.log
+# build --no-cache:
+#   docker image build -f ./containers/regdemos/Dockerfile.regdemos --no-cache -t regdemosimage . 2>&1 | tee build.log
+
+# https://docs.docker.com/engine/reference/commandline/run/
+# --interactive,-i: Keep STDIN open
+# --publish,-p: Publish a container's (ports) to the host
+# --rm: Remove container when it exits
+# --tty,-t: Allocate a pseudo-TTY
+# --volume,-v: Bind mount a volume
+#
+# run:
+#   docker run --privileged --rm -v $PWD/shared-storage:/home/ghubhost/shared-storage -p 9999:8888 regdemosimage
+#
+#   When the Jupyter Notebook is running at message appears,
+#   open a web browser and enter the url localhost:9999, enter the password ghubhost and open notebooks/<tool_name>/<tool_name>.ipynb
+#
+#   For testing:
+#   docker run -it regdemosimage /bin/bash
+#
+#   This form maintains previous information:
+#   docker run --privileged --rm --name regdemosimage-container -p 9999:8888 regdemosimage
+
+# On Mac, Docker containers and images are stored in a single file, large file named Docker.raw.
+# See:
+# ~/Library/Containers/Docker/Data/vms/0/data/Docker.raw
+# On Linux,  Docker containers and images are usually stored in the /var/lib/docker directory.
+
+# ====================================================================
+# System Installations
+# ====================================================================
+
+# Use the official Debian 10 "buster" image as the base.
+FROM debian:10-slim
+
+# Note: Debian 10 "Buster" officially reached its end-of-life (EOL) for Long Term Support (LTS) on June 30, 2024
+# (Also see: https://www.debian.org/releases/buster/)
+RUN sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list && \
+    sed -i 's|security.debian.org|archive.debian.org|g' /etc/apt/sources.list
+    
+LABEL desc="Ghub regdemos jupyter notebook docker image."
+
+# Set environment variable to avoid interactive prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN groupadd --gid 808 ghubhost-group
+
+# Creates the new non-root user account, ghubhost, and create the /home/ghubhost directory
+RUN useradd --gid 808 --uid 550 --create-home --password '$5$Q46cbOm7XNflcNjK$ROrg3df95Kc0.mPQVT3XX/GkDwSUmg8fUCt65ophrX1' ghubhost
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bc \
+    build-essential \
+    ca-certificates \
+    curl \
+    sudo \
+    supervisor \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Locale and timezone
+ENV LANG en_US.UTF-8
+RUN cp /usr/share/zoneinfo/America/New_York /etc/localtime
+
+# ====================================================================
+# Anaconda-7 Installations
+# ====================================================================
+
+ADD ./anaconda /home/ghubhost/anaconda
+
+WORKDIR /home/ghubhost/anaconda
+
+ENV CONDA_DIR=/home/ghubhost/anaconda/anaconda-7
+RUN chmod +x Miniconda3-py38_4.9.2-Linux-x86_64.sh
+RUN /bin/bash Miniconda3-py38_4.9.2-Linux-x86_64.sh -b -p $CONDA_DIR
+ENV PATH=$CONDA_DIR/bin:$PATH
+RUN conda --version
+
+# Conda init
+RUN chmod +x /home/ghubhost/anaconda/anaconda-7/etc/profile.d/conda.sh
+RUN /bin/bash "/home/ghubhost/anaconda/anaconda-7/etc/profile.d/conda.sh"
+
+RUN conda env update --name base --file anaconda-7_base_environment.yml
+# The python3 kernel, display_name Python 3 (ipykernel), installed to /home/ghubhost/anaconda/anaconda-7/share/jupyter/kernels/python3/kernel.json
+
+# Install the geospatial-2021-09 environment and kernel
+RUN chmod +x install_conda_environment_and_kernel_from_yml.sh
+RUN /bin/bash install_conda_environment_and_kernel_from_yml.sh anaconda-7 geospatial-2021-09
+
+RUN jupyter nbextension enable --py --sys-prefix widgetsnbextension \
+    && jupyter nbextension enable --py --sys-prefix appmode \
+    && jupyter serverextension enable --py --sys-prefix appmode
+
+# ====================================================================
+# Notebook Configurations
+# ====================================================================
+
+WORKDIR /home/ghubhost
+
+ADD ./tools/regdemos /home/ghubhost/regdemos
+RUN chown -R ghubhost:ghubhost-group /home/ghubhost/regdemos
+
+ADD ./containers/regdemos/config/start_jupyter.sh /start_jupyter.sh
+# Contains the jupyter notebook command
+ADD ./containers/regdemos/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# User setup
+RUN echo -e "ghubhost ALL=(ALL)       NOPASSWD:ALL\n" >> /etc/sudoers
+USER ghubhost
+
+RUN echo -e "export PATH=/home/ghubhost/.pyenv/bin:\$PATH:/usr/lib64/mpich/bin" >> /home/ghubhost/.bashrcƒ
+
+# Set notebook password to 'ghubhost'. This pw will be used instead of token authentication
+RUN mkdir /home/ghubhost/.jupyter \
+    && echo "{ \"NotebookApp\": { \"password\": \"sha1:c0a9ee8f5cd6059f5edd8ffee10fabe2d03d97badc51075c2e5d4cd2f4121012\" } }" >> /home/ghubhost/.jupyter/jupyter_notebook_config.json
+
+USER root
+# Similar in concept to the Ghub middleware/invoke script's call to /usr/bin/invoke_app start_jupyter.
+CMD ["/start_jupyter.sh"]
+
+
