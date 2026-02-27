@@ -24,5 +24,5 @@ conda env export | grep -v "^name: " | grep -v "^prefix: " > ${conda_env_yml}
 conda deactivate
 
 end=$(date +%s)
-echo "Done. Total elasped time: $(($end-$start1)) seconds"
+echo "Done. Total elapsed time: $(($end-$start1)) seconds"
 

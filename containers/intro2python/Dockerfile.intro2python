@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------------------------------------------------------
-# Dockerfile to build a Docker image for running the Ghub insolationiceex Jupyter notebook
+# Dockerfile to build a Docker image for running the Ghub Intro2Python Jupyter notebook
 #
 # Component of: Ghub
 # Purpose: Run a Ghub Jupyter Notebook
@@ -14,9 +14,9 @@
 # --tag,-t Name
 #
 # build:
-#   docker image build -f ./containers/insolationiceex/Dockerfile.insolationiceex -t insolationiceex_image . 2>&1 | tee build.log
+#   docker image build -f ./containers/intro2python/Dockerfile.intro2python -t intro2python_image . 2>&1 | tee build.log
 # build --no-cache:
-#   docker image build -f ./containers/insolationiceex/Dockerfile.insolationiceex --no-cache -t insolationiceex_image . 2>&1 | tee build.log
+#   docker image build -f ./containers/intro2python/Dockerfile.intro2python --no-cache -t intro2python_image . 2>&1 | tee build.log
 
 # https://docs.docker.com/engine/reference/commandline/run/
 # --interactive,-i: Keep STDIN open
@@ -26,16 +26,16 @@
 # --volume,-v: Bind mount a volume
 #
 # run:
-#   docker run --privileged --rm -v $PWD/shared-storage:/home/ghubhost/shared-storage -p 9999:8888 insolationiceex_image
+#   docker run --privileged --rm -v $PWD/shared-storage:/home/ghubhost/shared-storage -p 9999:8888 intro2python_image
 #
 #   When the Jupyter Notebook is running at message appears,
 #   open a web browser and enter the url localhost:9999, enter the password ghubhost and open notebooks/<tool_name>/<tool_name>.ipynb
 #
 #   For testing:
-#   docker run -it insolationiceex_image /bin/bash
+#   docker run -it intro2python_image /bin/bash
 #
 #   This form maintains previous information:
-#   docker run --privileged --rm --name insolationiceex_image-container -p 9999:8888 insolationiceex_image
+#   docker run --privileged --rm --name intro2python_image-container -p 9999:8888 intro2python_image
 
 # On Mac, Docker containers and images are stored in a single file, large file named Docker.raw.
 # See:
@@ -48,10 +48,7 @@
 
 FROM anaconda-7_base_image
     
-LABEL desc="Ghub askiced jupyter notebook docker image."
-
-# Set environment variable to avoid interactive prompts during installation
-ENV DEBIAN_FRONTEND=noninteractive
+LABEL desc="Ghub Intro2Python jupyter notebook docker image."
 
 # ====================================================================
 # Notebook Configurations
@@ -59,12 +56,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /home/ghubhost
 
-ADD ./tools/insolationiceex /home/ghubhost/insolationiceex
-RUN chown -R ghubhost:ghubhost-group /home/ghubhost/insolationiceex
+ADD ./tools/Intro2Python /home/ghubhost/intro2python
+RUN chown -R ghubhost:ghubhost-group /home/ghubhost/intro2python
 
-ADD ./containers/insolationiceex/config/start_jupyter.sh /start_jupyter.sh
+ADD ./containers/intro2python/config/start_jupyter.sh /start_jupyter.sh
 # Contains the jupyter notebook command
-ADD ./containers/insolationiceex/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+ADD ./containers/intro2python/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # User setup
 RUN echo -e "ghubhost ALL=(ALL)       NOPASSWD:ALL\n" >> /etc/sudoers

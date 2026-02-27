@@ -10,12 +10,13 @@
 #   docker builder prune
 
 # https://docs.docker.com/engine/reference/commandline/build/
+# --file, -f Name of the Dockerfile (Default is PATH/Dockerfile)
 # --tag,-t Name
 #
 # build:
-#   docker image build -f ./containers/icesheet1/Dockerfile.icesheet1 -t icesheet1image . 2>&1 | tee build.log
+#   docker image build -f ./containers/icesheet1/Dockerfile.icesheet1 -t icesheet1_image . 2>&1 | tee build.log
 # build --no-cache:
-#   docker image build -f ./containers/icesheet1/Dockerfile.icesheet1 --no-cache -t icesheet1image . 2>&1 | tee build.log
+#   docker image build -f ./containers/icesheet1/Dockerfile.icesheet1 --no-cache -t icesheet1_image . 2>&1 | tee build.log
 
 # https://docs.docker.com/engine/reference/commandline/run/
 # --interactive,-i: Keep STDIN open
@@ -25,16 +26,16 @@
 # --volume,-v: Bind mount a volume
 #
 # run:
-#   docker run --privileged --rm -v $PWD/shared-storage:/home/ghubhost/shared-storage -p 9999:8888 icesheet1image
+#   docker run --privileged --rm -v $PWD/shared-storage:/home/ghubhost/shared-storage -p 9999:8888 icesheet1_image
 #
 #   When the Jupyter Notebook is running at message appears,
 #   open a web browser and enter the url localhost:9999, enter the password ghubhost and open notebooks/<tool_name>/<tool_name>.ipynb
 #
 #   For testing:
-#   docker run -it icesheet1image /bin/bash
+#   docker run -it icesheet1_image /bin/bash
 #
 #   This form maintains previous information:
-#   docker run --privileged --rm --name icesheet1image-container -p 9999:8888 icesheet1image
+#   docker run --privileged --rm --name icesheet1_image-container -p 9999:8888 icesheet1_image
 
 # On Mac, Docker containers and images are stored in a single file, large file named Docker.raw.
 # See:
@@ -45,42 +46,21 @@
 # System Installations
 # ====================================================================
 
-# Use the official Debian 10 "buster" image as the base.
-FROM debian:10-slim
-
-# Note: Debian 10 "Buster" officially reached its end-of-life (EOL) for Long Term Support (LTS) on June 30, 2024
-# (Also see: https://www.debian.org/releases/buster/)
-RUN sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list && \
-    sed -i 's|security.debian.org|archive.debian.org|g' /etc/apt/sources.list
+FROM anaconda-7_base_image
     
 LABEL desc="Ghub icesheet1 jupyter notebook docker image."
 
 # Set environment variable to avoid interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN groupadd --gid 808 ghubhost-group
-
-# Creates the new non-root user account, ghubhost, and create the /home/ghubhost directory
-RUN useradd --gid 808 --uid 550 --create-home --password '$5$Q46cbOm7XNflcNjK$ROrg3df95Kc0.mPQVT3XX/GkDwSUmg8fUCt65ophrX1' ghubhost
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bc \
-    build-essential \
-    ca-certificates \
-    curl \
     ed \
     gawk \
     gfortran \
     poppler-utils \
-    sudo \
-    supervisor \
     texinfo \
-    wget \
     && rm -rf /var/lib/apt/lists/*
-
-# Locale and timezone
-ENV LANG en_US.UTF-8
-RUN cp /usr/share/zoneinfo/America/New_York /etc/localtime
 
 # ====================================================================
 # Anaconda-7 Installations
@@ -90,30 +70,13 @@ ADD ./anaconda /home/ghubhost/anaconda
 
 WORKDIR /home/ghubhost/anaconda
 
-ENV CONDA_DIR=/home/ghubhost/anaconda/anaconda-7
-RUN chmod +x Miniconda3-py38_4.9.2-Linux-x86_64.sh
-RUN /bin/bash Miniconda3-py38_4.9.2-Linux-x86_64.sh -b -p $CONDA_DIR
-ENV PATH=$CONDA_DIR/bin:$PATH
-RUN conda --version
-
-# Conda init
-RUN chmod +x /home/ghubhost/anaconda/anaconda-7/etc/profile.d/conda.sh
-RUN /bin/bash "/home/ghubhost/anaconda/anaconda-7/etc/profile.d/conda.sh"
-
-RUN conda env update --name base --file anaconda-7_base_environment.yml
-# The python3 kernel, display_name Python 3 (ipykernel), installed to /home/ghubhost/anaconda/anaconda-7/share/jupyter/kernels/python3/kernel.json
-
 # Install the geospatial-2021-09 environment and kernel
 RUN chmod +x install_conda_environment_and_kernel_from_yml.sh
 RUN /bin/bash install_conda_environment_and_kernel_from_yml.sh anaconda-7 geospatial-2021-09
 
 # Install the geospacial-plus-2 environment and kernel.
-# Per ghub ticket 2945, gmt, ncks and ogr2gr required by icesheet1 installed to this environment
+# Per ghub ticket 2945, gmt, ncks and ogr2gr required by icesheet1 are installed to this environment
 RUN /bin/bash install_conda_environment_and_kernel_from_yml.sh anaconda-7 geospacial-plus-2
-
-RUN jupyter nbextension enable --py --sys-prefix widgetsnbextension \
-    && jupyter nbextension enable --py --sys-prefix appmode \
-    && jupyter serverextension enable --py --sys-prefix appmode
 
 # ====================================================================
 # Notebook Configurations
@@ -124,10 +87,29 @@ WORKDIR /home/ghubhost
 ADD ./tools/icesheet1 /home/ghubhost/icesheet1
 RUN chown -R ghubhost:ghubhost-group /home/ghubhost/icesheet1
 
+WORKDIR /home/ghubhost/icesheet1 
+
+# Make sure version currently checked into the Ghub git repository works
+
+RUN sed -i 's|import hublib.use|#import hublib.use|g' icesheet1.ipynb \
+    && sed -i 's|. /etc/environ.sh|#. /etc/environ.sh|g' run_icesheet.sh \
+    && sed -i 's|use -e -r anaconda-7|#use -e -r anaconda-7|g' run_icesheet.sh \
+    && sed -i 's|. "/apps/share64/debian10/anaconda/anaconda-7/etc/profile.d/conda.sh"|#. "/apps/share64/debian10/anaconda/anaconda-7/etc/profile.d/conda.sh"|g' run_icesheet.sh \
+    && sed -i 's|conda activate "/apps/share64/debian10/anaconda/anaconda-7/envs/geospacial-plus-2"|source activate "/home/ghubhost/anaconda/anaconda-7/envs/geospacial-plus-2"|g' run_icesheet.sh \
+    && sed -i 's|. /etc/environ.sh|#. /etc/environ.sh|g' plot.sh \
+    && sed -i 's|use -e -r anaconda-7|#use -e -r anaconda-7|g' plot.sh \
+    && sed -i 's|. "/apps/share64/debian10/anaconda/anaconda-7/etc/profile.d/conda.sh"|#. "/apps/share64/debian10/anaconda/anaconda-7/etc/profile.d/conda.sh"|g' plot.sh \
+    && sed -i 's|conda activate "/apps/share64/debian10/anaconda/anaconda-7/envs/geospacial-plus-2"|source activate "/home/ghubhost/anaconda/anaconda-7/envs/geospacial-plus-2"|g' plot.sh
+
 WORKDIR /home/ghubhost/icesheet1/src
 
 # Compile the Fortran executable
 # Todo: install ifort
+RUN sed -i 's|#FC = gfortran|FC = gfortran|g' makefile \
+    && sed -i 's|FC = ifort|#FC = ifort|g' makefile \
+    && sed -i 's|#FCFLAGS = -O2|FCFLAGS = -O2|g' makefile \
+    && sed -i 's|FCFLAGS = -O2 -assume byterecl|#FCFLAGS = -O2 -assume byterecl|g' makefile
+
 RUN make icesheet
 
 WORKDIR /home/ghubhost

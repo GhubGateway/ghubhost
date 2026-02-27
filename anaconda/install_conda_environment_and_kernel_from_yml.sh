@@ -24,7 +24,7 @@ echo "Creating env "${environment}"..."
 # -n,--name: Name of the environment
 ${conda_root}/bin/conda env create --name ${environment} --file ${conda_env_yml}
 end=$(date +%s)
-echo "Env ${environment} created. Elapsed time: $((($end-$start2)/60)) minutes"
+echo "Env ${environment} created. Elapsed time: $((($end-$start1)/60)) minutes"
 
 echo "Activating env "${environment}"..."
 # Observation, conda activate returns Your shell has not been properly configured to use conda activate and
@@ -56,4 +56,4 @@ echo "which python: "$(which python)
 echo "jupyter kernelspec list: "$(jupyter kernelspec list)
 
 end=$(date +%s)
-echo "Done. Total elasped time: $((($end-$start1)/60)) minutes"
+echo "Done. Total elapsed time: $((($end-$start1)/60)) minutes"
