@@ -50,13 +50,6 @@ FROM anaconda-7_base_image
     
 LABEL desc="Ghub ncarismipplots jupyter notebook docker image."
 
-# Set environment variable to avoid interactive prompts during installation
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgdal-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 # ====================================================================
 # Anaconda-7 Installations
 # ====================================================================
@@ -69,9 +62,9 @@ ENV CONDA_DIR=/home/ghubhost/anaconda/anaconda-7
 ENV PATH=$CONDA_DIR/bin:$PATH
 RUN conda --version
 
-# Install the geospatial-2021-09 environment and kernel
+# Install the ncar environment and kernel
 RUN chmod +x install_conda_environment_and_kernel_from_yml.sh
-RUN /bin/bash install_conda_environment_and_kernel_from_yml.sh anaconda-7 geospatial-2021-09
+RUN /bin/bash install_conda_environment_and_kernel_from_yml.sh anaconda-7 ncar
 
 # ====================================================================
 # Notebook Configurations
@@ -82,8 +75,9 @@ WORKDIR /home/ghubhost
 ADD ./tools/ncarismipplots /home/ghubhost/ncarismipplots
 RUN chown -R ghubhost:ghubhost-group /home/ghubhost/ncarismipplots
 
-# Using anaconda-7. Make sure version currently checked into the Ghub svn repository works
-RUN sed -i 's|"name": "geospatial-anaconda-6"|"name": "geospatial-2021-09"|g' /home/ghubhost/ncarismipplots/CESM_display_final.ipynb
+# Using anaconda-7. Make sure version currently checked into the Ghub git repository works
+RUN sed -i 's|"display_name": "geospatial-plus python3"|"display_name": "Python3 (ncar)"|g' /home/ghubhost/ncarismipplots/CESM_display_final.ipynb
+RUN sed -i 's|"name": "geospatial-anaconda-6"|"name": "ncar"|g' /home/ghubhost/ncarismipplots/CESM_display_final.ipynb
 
 ADD ./containers/ncarismipplots/config/start_jupyter.sh /start_jupyter.sh
 # Contains the jupyter notebook command

@@ -40,7 +40,7 @@
 # On Mac, Docker containers and images are stored in a single file, large file named Docker.raw.
 # See:
 # ~/Library/Containers/Docker/Data/vms/0/data/Docker.raw
-# On Linux,  Docker containers and images are usually stored in the /var/lib/docker directory.
+# On Linux, Docker containers and images are usually stored in the /var/lib/docker directory.
 
 # ====================================================================
 # System Installations
@@ -49,27 +49,6 @@
 FROM anaconda-7_base_image
     
 LABEL desc="Ghub isschecker jupyter notebook docker image."
-
-# Set environment variable to avoid interactive prompts during installation
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgdal-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# ====================================================================
-# Anaconda-7 Installations
-# ====================================================================
-
-ADD ./anaconda /home/ghubhost/anaconda
-
-WORKDIR /home/ghubhost/anaconda
-
-# Install the geospatial-2021-09 environment and kernel
-RUN chmod +x install_conda_environment_and_kernel_from_yml.sh
-RUN /bin/bash install_conda_environment_and_kernel_from_yml.sh anaconda-7 geospatial-2021-09
-
-conda install -c conda-forge --force-reinstall rasterio gdal rioxarray
 
 # ====================================================================
 # Notebook Configurations
@@ -81,7 +60,8 @@ ADD ./tools/isschecker /home/ghubhost/isschecker
 RUN chown -R ghubhost:ghubhost-group /home/ghubhost/isschecker
 
 # Using anaconda-7. Make sure version currently checked into the Ghub git repository works
-RUN sed -i 's|"name": "geospatial-anaconda-6"|"name": "geospatial-2021-09"|g' /home/ghubhost/isschecker/isschecker.ipynb
+RUN sed -i 's|"display_name": "geospatial-plus python3"|"display_name": "Python 3 (ipykernel)"|g' /home/ghubhost/isschecker/isschecker.ipynb
+RUN sed -i 's|"name": "geospatial-anaconda-6"|"name": "python3"|g' /home/ghubhost/isschecker/isschecker.ipynb
 
 ADD ./containers/isschecker/config/start_jupyter.sh /start_jupyter.sh
 # Contains the jupyter notebook command

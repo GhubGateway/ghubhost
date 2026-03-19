@@ -15,7 +15,11 @@ echo "environment: "$environment
 echo "which conda: "$(which conda)
 echo "which python: "$(which python)
 
+tool_kernel_json_dir="${parent_dir}/share/jupyter/kernels/${environment}"
+
 conda_root=/home/ghubhost/anaconda/${conda_choice}
+tool_env_dir=${conda_root}/envs/${environment}
+tool_kernel_json_dir="${conda_root}/share/jupyter/kernels/${environment}"
 
 conda_env_yml=./${conda_choice}_${environment}_environment.yml
 
@@ -47,8 +51,36 @@ else
     python -m ipykernel install --prefix ${conda_root} --name ${environment} --display-name "Python3 (${environment})"
 fi
 
+KERNEL_JSON_PATH="${tool_kernel_json_dir}/kernel.json"
+# For the environment to get activated when the kernel is selected, modify ${KERNEL_JSON_PATH} and add the PATH env variable. For a reference see /apps/share64/debian10/anaconda/anaconda-7/share/jupyter/kernels/geospatial-2021-09/kernel.json.
+echo ${KERNEL_JSON_PATH}
+
+# Define the environment variable name and value
+ENV_VAR_NAME="PATH"
+#echo ${ENV_VAR_NAME}
+ENV_VAR_VALUE="${tool_env_dir}/bin:${conda_root}/bin:/bin:/usr/bin:/usr/bin/X11:/sbin:/usr/sbin"
+#echo ${ENV_VAR_VALUE}
+
+# Check if the kernel.json file exists
+if [ ! -f "${KERNEL_JSON_PATH}" ]; then
+    echo "Error: kernel.json not found at ${KERNEL_JSON_PATH}"
+else
+    # jq is like sed for JavaScript Object Notation (JSON) data.
+    # Add or update the environment variable in the 'env' section of kernel.json
+    # If 'env' does not exist, it will be created.
+    # If the variable already exists, its value will be updated.
+    jq --arg name "$ENV_VAR_NAME" --arg value "$ENV_VAR_VALUE" \
+       '.env += {($name): $value}' "${KERNEL_JSON_PATH}" > "${KERNEL_JSON_PATH}.tmp" && \
+    mv "${KERNEL_JSON_PATH}.tmp" "${KERNEL_JSON_PATH}"
+
+    echo "Environment variable '${ENV_VAR_NAME}' added/updated in ${KERNEL_JSON_PATH}"
+    
+    echo "${KERNEL_JSON_PATH}:"
+    cat ${KERNEL_JSON_PATH}
+fi
+
 echo "Deactivating env "${environment}"..."
-${conda_root}/bin/conda deactivate
+. ${conda_root}/bin/deactivate
 echo "Env ${environment} deactivated"
 
 echo "which jupyter: "$(which jupyter)
