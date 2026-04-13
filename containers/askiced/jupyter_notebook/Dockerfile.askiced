@@ -1,0 +1,67 @@
+#------------------------------------------------------------------------------------------------------------------------------
+# Dockerfile to build a Docker image for running the Ghub askiced Jupyter notebook
+#
+# Component of: Ghub
+# Purpose: Run a Ghub Jupyter Notebook
+# Author: Renette Jones-Ivey
+# Date: April 2026
+#------------------------------------------------------------------------------------------------------------------------------
+
+# ====================================================================
+# System Installations
+# ====================================================================
+
+FROM anaconda-7_base_image:latest
+    
+LABEL desc="Ghub askiced jupyter notebook docker image."
+
+# Set environment variable to avoid interactive prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    inetutils-telnet \
+    inetutils-ping \
+    && rm -rf /var/lib/apt/lists/*
+
+# ====================================================================
+# Anaconda-7 Installations
+# ====================================================================
+
+WORKDIR /home/ghubuser
+
+COPY ./anaconda/install_conda_environment_and_kernel_from_yml.sh /home/ghubuser/anaconda/install_conda_environment_and_kernel_from_yml.sh
+COPY ./anaconda/anaconda-7_askiced_environment.yml /home/ghubuser/anaconda/anaconda-7_askiced_environment.yml
+
+WORKDIR /home/ghubuser/anaconda
+
+#Install the askiced environment and kernel
+RUN chmod +x install_conda_environment_and_kernel_from_yml.sh
+RUN /bin/bash install_conda_environment_and_kernel_from_yml.sh anaconda-7 askiced
+
+# ====================================================================
+# Notebook Configurations
+# ====================================================================
+
+WORKDIR /home/ghubuser
+
+COPY ./tools/askiced /home/ghubuser/askiced
+RUN chown -R ghubuser:ghubuser-group /home/ghubuser/askiced
+
+COPY ./containers/askiced/jupyter_notebook/config/start_jupyter.sh /start_jupyter.sh
+# Contains the jupyter notebook command
+COPY ./containers/askiced/jupyter_notebook/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# User setup
+RUN echo -e "ghubuser ALL=(ALL)       NOPASSWD:ALL\n" >> /etc/sudoers
+
+USER ghubuser
+
+RUN echo -e "export PATH=/home/ghubuser/.pyenv/bin:\$PATH:/usr/lib64/mpich/bin" >> /home/ghubuser/.bashrcƒ
+RUN jupyter trust /home/ghubuser/askiced/askiced.ipynb
+
+WORKDIR /home/ghubuser/askiced
+
+# Similar in concept to the Ghub middleware/invoke script's call to /usr/bin/invoke_app start_jupyter.
+CMD ["/start_jupyter.sh"]
+
+

@@ -1,0 +1,83 @@
+#------------------------------------------------------------------------------------------------------------------------------
+# Dockerfile to build a Docker image for running the Ghub icesheet1 Jupyter notebook
+#
+# Component of: Ghub
+# Purpose: Run a Ghub Jupyter Notebook
+# Author: Renette Jones-Ivey
+# Date: April 2026
+#------------------------------------------------------------------------------------------------------------------------------
+
+# ====================================================================
+# System Installations
+# ====================================================================
+
+FROM anaconda-7_base_image:latest
+    
+LABEL desc="Ghub icesheet1 jupyter notebook docker image."
+
+# Set environment variable to avoid interactive prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bc \
+    ed \
+    gawk \
+    gfortran \
+    poppler-utils \
+    texinfo \
+    && rm -rf /var/lib/apt/lists/*
+
+# ====================================================================
+# Anaconda-7 Installations
+# ====================================================================
+
+WORKDIR /home/ghubuser
+
+COPY ./anaconda/install_conda_environment_and_kernel_from_yml.sh /home/ghubuser/anaconda/install_conda_environment_and_kernel_from_yml.sh
+COPY ./anaconda/anaconda-7_geospatial-2021-09_environment.yml /home/ghubuser/anaconda/anaconda-7_geospatial-2021-09_environment.yml
+COPY ./anaconda/anaconda-7_geospacial-plus-2_environment.yml /home/ghubuser/anaconda/anaconda-7_geospacial-plus-2_environment.yml
+
+WORKDIR /home/ghubuser/anaconda
+
+# Install the geospatial-2021-09 environment and kernel
+RUN chmod +x install_conda_environment_and_kernel_from_yml.sh
+RUN /bin/bash install_conda_environment_and_kernel_from_yml.sh anaconda-7 geospatial-2021-09
+
+# Install the geospacial-plus-2 environment and kernel.
+# GDAL (Geospatial Data Abstraction Library) is widely available in generic mapping tools (gmt) primarily as a built-in backend library for 
+# reading/writing raster/vector formats (e.g., GeoTIFF, shapefiles).
+# Per ghub ticket 2945, gmt, ncks and ogr2gr required by icesheet1 are installed to this environment
+RUN /bin/bash install_conda_environment_and_kernel_from_yml.sh anaconda-7 geospacial-plus-2
+
+# ====================================================================
+# Notebook Configurations
+# ====================================================================
+
+WORKDIR /home/ghubuser
+
+COPY ./tools/icesheet1 /home/ghubuser/icesheet1
+RUN chown -R ghubuser:ghubuser-group /home/ghubuser/icesheet1
+
+WORKDIR /home/ghubuser/icesheet1/src
+
+# Compile the Fortran executable
+# Todo: install ifort
+RUN make icesheet
+
+WORKDIR /home/ghubuser
+
+RUN mkdir -p /home/ghubuser/.jupyter
+COPY ./containers/icesheet1/jupyterhub_dockerspawner/config/jupyter_notebook_config.py /home/ghubuser/.jupyter/jupyter_notebook_config.py
+RUN chown -R ghubuser:ghubuser-group /home/ghubuser/.jupyter
+
+# User setup
+RUN echo -e "ghubuser ALL=(ALL)       NOPASSWD:ALL\n" >> /etc/sudoers
+
+USER ghubuser
+
+RUN jupyter trust /home/ghubuser/icesheet1/icesheet1.ipynb
+
+WORKDIR /home/ghubuser/icesheet1
+
+# Set the command to run the single-user server when the container starts
+CMD ["jupyterhub-singleuser"]

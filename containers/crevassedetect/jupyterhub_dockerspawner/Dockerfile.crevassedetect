@@ -1,0 +1,52 @@
+#------------------------------------------------------------------------------------------------------------------------------
+# Dockerfile to build a Docker image for running the Ghub crevassedetect Jupyter notebook
+#
+# Component of: Ghub
+# Purpose: Run a Ghub Jupyter Notebook
+# Author: Renette Jones-Ivey
+# Date: April 2026
+#------------------------------------------------------------------------------------------------------------------------------
+
+# ====================================================================
+# System Installations
+# ====================================================================
+
+FROM anaconda-7_base_image:latest
+    
+LABEL desc="Ghub crevassedetect jupyter notebook docker image."
+
+# ====================================================================
+# Anaconda-7 Installations
+# ====================================================================
+
+WORKDIR /home/ghubuser
+
+COPY ./anaconda/install_conda_environment_and_kernel_from_yml.sh /home/ghubuser/anaconda/install_conda_environment_and_kernel_from_yml.sh
+COPY ./anaconda/anaconda-7_crevasse-detect-2_environment.yml /home/ghubuser/anaconda/anaconda-7_crevasse-detect-2_environment.yml
+
+WORKDIR /home/ghubuser/anaconda
+
+# Install the crevasse-detect-2 environment and kernel
+RUN chmod +x install_conda_environment_and_kernel_from_yml.sh
+RUN /bin/bash install_conda_environment_and_kernel_from_yml.sh anaconda-7 crevasse-detect-2
+
+# ====================================================================
+# Notebook Configurations
+# ====================================================================
+
+WORKDIR /home/ghubuser
+
+COPY ./tools/crevassedetect /home/ghubuser/crevassedetect
+RUN chown -R ghubuser:ghubuser-group /home/ghubuser/crevassedetect
+
+# User setup
+RUN echo -e "ghubuser ALL=(ALL)       NOPASSWD:ALL\n" >> /etc/sudoers
+
+USER ghubuser
+
+RUN jupyter trust /home/ghubuser/crevassedetect/crevassedetect.ipynb
+
+WORKDIR /home/ghubuser/crevassedetect
+
+# Set the command to run the single-user server when the container starts
+CMD ["jupyterhub-singleuser"]

@@ -1,0 +1,59 @@
+#------------------------------------------------------------------------------------------------------------------------------
+# Dockerfile to build a Docker image for running the Ghub regdemos Jupyter notebook
+#
+# Component of: Ghub
+# Purpose: Run a Ghub Jupyter Notebook
+# Author: Renette Jones-Ivey
+# Date: April 2026
+#------------------------------------------------------------------------------------------------------------------------------
+
+# ====================================================================
+# System Installations
+# ====================================================================
+
+FROM anaconda-7_base_image:latest
+    
+LABEL desc="Ghub regdemos jupyter notebook docker image."
+
+# ====================================================================
+# Anaconda-7 Installations
+# ====================================================================
+
+WORKDIR /home/ghubuser
+
+COPY ./anaconda/install_conda_environment_and_kernel_from_yml.sh /home/ghubuser/anaconda/install_conda_environment_and_kernel_from_yml.sh
+COPY ./anaconda/anaconda-7_geospatial-2021-09_environment.yml /home/ghubuser/anaconda/anaconda-7_geospatial-2021-09_environment.yml
+
+WORKDIR /home/ghubuser/anaconda
+
+# Install the geospatial-2021-09 environment and kernel
+RUN chmod +x install_conda_environment_and_kernel_from_yml.sh
+RUN /bin/bash install_conda_environment_and_kernel_from_yml.sh anaconda-7 geospatial-2021-09
+
+# ====================================================================
+# Notebook Configurations
+# ====================================================================
+
+WORKDIR /home/ghubuser
+
+COPY ./tools/regdemos /home/ghubuser/regdemos
+RUN chown -R ghubuser:ghubuser-group /home/ghubuser/regdemos
+
+COPY ./containers/regdemos/jupyter_notebook/config/start_jupyter.sh /start_jupyter.sh
+# Contains the jupyter notebook command
+COPY ./containers/regdemos/jupyter_notebook/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# User setup
+RUN echo -e "ghubuser ALL=(ALL)       NOPASSWD:ALL\n" >> /etc/sudoers
+
+USER ghubuser
+
+RUN echo -e "export PATH=/home/ghubuser/.pyenv/bin:\$PATH:/usr/lib64/mpich/bin" >> /home/ghubuser/.bashrcƒ
+RUN jupyter trust /home/ghubuser/regdemos/regdemos.ipynb
+
+WORKDIR /home/ghubuser/regdemos
+
+# Similar in concept to the Ghub middleware/invoke script's call to /usr/bin/invoke_app start_jupyter.
+CMD ["/start_jupyter.sh"]
+
+

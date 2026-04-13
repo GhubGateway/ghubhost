@@ -4,20 +4,21 @@
 # Component of: Ghub
 # Purpose: Run a Ghub Jupyter Notebook
 # Author: Renette Jones-Ivey
-# Date: February 2026
+# Date: April 2026
 #------------------------------------------------------------------------------------------------------------------------------
-# remove remove dangling build cache:
-#   docker builder prune
-
+#
 # https://docs.docker.com/engine/reference/commandline/build/
 # --file, -f Name of the Dockerfile (Default is PATH/Dockerfile)
 # --tag,-t Name
 #
 # build:
 #   docker image build -f ./anaconda/Dockerfile.anaconda-7 -t anaconda-7_base_image . 2>&1 | tee build.log
-# build --no-cache:
-#   docker image build -f ./anaconda/Dockerfile.anaconda-7 --no-cache -t anaconda-7_base_image . 2>&1 | tee build.log
-
+#
+# https://docs.docker.com/engine/reference/commandline/run/
+# --interactive,-i: Keep STDIN open
+# --tty,-t: Allocate a pseudo-TTY
+#
+# run:
 #   For testing:
 #   docker run -it anaconda-7_base_image /bin/bash
 
@@ -38,10 +39,10 @@ LABEL desc="Ghub anaconda-7_base docker image."
 # Set environment variable to avoid interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN groupadd --gid 808 ghubhost-group
+RUN groupadd --gid 808 ghubuser-group
 
-# Creates the new non-root user account, ghubhost, and create the /home/ghubhost directory
-RUN useradd --gid 808 --uid 550 --create-home --password '$5$Q46cbOm7XNflcNjK$ROrg3df95Kc0.mPQVT3XX/GkDwSUmg8fUCt65ophrX1' ghubhost
+# Creates the new non-root user account, ghubuser, and create the /home/ghubuser directory
+RUN useradd --gid 808 --uid 550 --create-home --password '$5$Q46cbOm7XNflcNjK$ROrg3df95Kc0.mPQVT3XX/GkDwSUmg8fUCt65ophrX1' ghubuser
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -60,24 +61,44 @@ RUN cp /usr/share/zoneinfo/America/New_York /etc/localtime
 # Anaconda-7 Installations
 # ====================================================================
 
-ADD ./anaconda /home/ghubhost/anaconda
+WORKDIR /home/ghubuser
 
-WORKDIR /home/ghubhost/anaconda
+RUN mkdir anaconda
 
-ENV CONDA_DIR=/home/ghubhost/anaconda/anaconda-7
+COPY ./anaconda/Miniconda3-py38_4.9.2-Linux-x86_64.sh /home/ghubuser/anaconda
+COPY ./anaconda/anaconda-7_base_environment.yml /home/ghubuser/anaconda
+
+WORKDIR /home/ghubuser/anaconda
+
+ENV CONDA_DIR=/home/ghubuser/anaconda/anaconda-7
 RUN chmod +x Miniconda3-py38_4.9.2-Linux-x86_64.sh
 RUN /bin/bash Miniconda3-py38_4.9.2-Linux-x86_64.sh -b -p $CONDA_DIR
 ENV PATH=$CONDA_DIR/bin:$PATH
 RUN conda --version
 
-# Initialize conda
-RUN chmod +x /home/ghubhost/anaconda/anaconda-7/etc/profile.d/conda.sh
-RUN /bin/bash /home/ghubhost/anaconda/anaconda-7/etc/profile.d/conda.sh
+RUN chmod +x /home/ghubuser/anaconda/anaconda-7/etc/profile.d/conda.sh
+RUN /bin/bash /home/ghubuser/anaconda/anaconda-7/etc/profile.d/conda.sh
 
 RUN conda env update --name base --file anaconda-7_base_environment.yml
-# The python3 kernel, display_name Python 3 (ipykernel), installed to /home/ghubhost/anaconda/anaconda-7/share/jupyter/kernels/python3/kernel.json
+# The python3 kernel, display_name Python 3 (ipykernel), installed to /home/ghubuser/anaconda/anaconda-7/share/jupyter/kernels/python3/kernel.json
 
 RUN jupyter nbextension enable --py --sys-prefix widgetsnbextension \
     && jupyter nbextension enable --py --sys-prefix appmode \
     && jupyter serverextension enable --py --sys-prefix appmode
+
+# Using JupyterHub 1.5.1.
+# SingleUserNotebookApp (Legacy): The classic Jupyter Notebook server uses specific routes like /apps/[notebook_name].ipynb for Appmode. When run locally with NotebookApp, these routes work as expected. 
+# JupyterHub 1.5.1 (see ./Dockerfile.hub) DockerSpawner requires the jupyterhub package to be installed in the user image primarily to provide the jupyterhub-singleuser executable.
+
+RUN apt-get update && apt-get install -y nodejs npm && \
+    npm install -g configurable-http-proxy && \
+    rm -rf /var/lib/apt/lists/*
+
+# The version of the jupyterhub package installed must be the same version used by the main Hub. 
+RUN . /home/ghubuser/anaconda/anaconda-7/bin/activate base && \
+    python -m pip --no-cache-dir install jupyterhub==1.5.1 && \
+    . /home/ghubuser/anaconda/anaconda-7/bin/deactivate
+
+WORKDIR /home/ghubuser
+
 

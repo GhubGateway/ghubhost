@@ -1,64 +1,44 @@
-# ghubhost
+# Ghub Tools
 
-This repository contains Dockerfiles for Ghub tools, replicating the Ghub anaconda-7 or anaconda-6 execution environments required by the tools. Keeping the Dockerfiles separate for each tool provides the smallest footprint for running the tools' Jupyter notebooks and allows testing each notebook via a web browser. Later, the Docker images can be consolidated as required.
+This repository contains Dockerfiles for Ghub tools, replicating the tool execution environments for the tools.
 
-
-Tested each Dockerfile by building the Docker image, running the Docker container, and opening the tool's Jupyter notebook via a web browser's localhost:9999 URL. Development platform is Docker 4.17.0 on a 2017 iMac running the Ventura 13.7.8 operating system.
- 
-## Notes
-
-### System Installations Notes:
-
-The system installations are different for each Dockerfile, depending on the underlying non-Python software required for the tool the base anaconda environment required for the tool.
-
-### Anaconda Installations Notes:
-
-Per the HUBzero Tools Administrators document, Ghub Admins are recommended to run HAPI (HUBzero Apps Program Installers) scripts to download, configure, compile, and install software in the tool execution environment. 
-
-For the Ghub anaconda-7 base environment, the recommended install script is https://github.com/hubzero/hapi/blob/master/scripts/anaconda-7_install_deb10.sh. This install script downloads Anaconda3-2020.11-Linux-x86_64.sh using wget https://help.hubzero.org/app/site/addons/tools/Anaconda3-2020.11-Linux-x86_64.sh. Anaconda3-2020.11-Linux-x86_64.sh installs conda version 4.9.2. Over the years, Ghub Admins have added additional Python packages to the original anaconda-7 base environment. On Ghub, ran a script to get a .yml file for the anaconda-7 base environment, anaconda-7_base_environment.yml. Downloaded a version of Miniconda consistent with Anaconda3-2020.11-Linux-x86_64.sh, from https://repo.anaconda.com/miniconda, Miniconda3-py38_4.9.2-Linux-x86_64.sh. The ./ghubhost/anaconda/Dockerfile.anaconda-7 Dockerfile builds the anaconda-7_base_image docker image which is based on the official Debian 10 "buster-slim" docker image, Miniconda is installed and then updated with Python packages contained in the anaconda-7_base_environment.yml file.
-
-For the Ghub anaconda-6 base environment, the recommended script is https://github.com/hubzero/hapi/blob/master/scripts/anaconda-6_install_deb10.sh. This install script downloads Anaconda3-2018.12-Linux-x86_64.sh using wget https://help.hubzero.org/app/site/addons/tools/Anaconda3-2018.12-Linux-x86_64.sh. Anaconda3-2018.12-Linux-x86_64.sh installs conda version 4.5.12. On Ghub, ran a script to get a .yml file for the anaconda-6 base environment anaconda-6_base_environment.yml. For each Dockerfile, Anaconda is installed. conda 4.5.12 is known to have issues that affects conda env update, conda create, and conda install using the conda-forge channel. Additional packages required by each tool are explicitly installed with pip based on the anaconda-6_base_environment.yml file.
-
-Dockerfiles for the tools are based on the anaconda-7_base_image or the anaconda-6_base_image.
-For each tool, opened the tool on Ghub to determine if the tool uses an environment different than the base. If so, ran a script on Ghub to get the environment's .yml file, and in this case, the Dockerfile for the tool installs the environment for the tool based on the environment's .yml file. Due to the conda 4.5.1 issues, this did not work as expected for anaconda-6. The issue was fixed in conda 4.6.0, but dependency issues, etc, occurred when updating conda 4.5.1+ with Python packages contained in anaconda-6 geospatial-plus python3 environment .yml file. Ghub anaconda-6 based tools, which require the geospatial-plus python3 environment, were updated to use the anaconda-7 geospatial-plus python3 environment.
-
-Some Jupyter notebooks access data in the Ghub /data/tools and /data/groups/ghub/tools directories. These tools will need to be modified to access mounted directories on the new platform.
-
-### Notebook Configuration Notes:
-
-For each tool, the source code downloaded from the tool's repository is added to the Docker image. Scripts are added to the Docker image, similar in concept to the Ghub tool's middleware/invoke script's call to /usr/bin/invoke_app start_jupyter.
+Source code files and scripts tested with Docker 4.17.0 on a 2017 iMac running the Ventura 13.7.8 operating system. 
 
 ## Usage
 
-The steps below are specific for the alps tool as a template. Also see ./ghubhost/containers/alps/Dockerfile.alps. Perform similar steps for the other tools.
+### Build the anaconda-7_base_image docker image
 
-### Download the tool from the tool's repository
+Start the Docker Daemon.
 
-Download the alps tool's source code from the alps tool's repository to the ./ghubhost/tools directory. See ./ghubhost/tools/get_alps.sh for information on how to do this. On Ghub, the tool's Wiki page also contains information on how to do this.
+Enter source ./build_anaconda-7_base_image.sh to build the anaconda-7_base_image docker image. 
 
-### Build the Docker image
+### Launch a Jupyter Notebook (default)
 
-cd ./ghubhost<br>
-docker image build -f ./containers/alps/Dockerfile.alps -t alps_image . 2>&1 | tee build.log
+Enter, source ./launch_<tool_alias_name>.sh or source ./launch_<tool_alias_name>.sh true, to build and run the tool's Jupyter Notebook Docker image. This runs a Jupyter Notebook server.
 
-### Run the Docker image
+When the *Jupyter Notebook is running at...* message appears, open a web browser and enter the URL localhost\:8000, enter the password: ghubuser and log in. Log out of the notebook and enter Control-C to stop the server.
 
-docker run --privileged --rm -v $PWD/shared-storage:/home/ghubhost/shared-storage -p 9999:8888 alps_image. Wait for the Jupyter Notebook is running at message to appear.
+### Launch a Jupyter Notebook using JupyterHub Dockerspawner
 
-### Open the Jupyter notebook
+Enter source ./launch_<tool_alias_name>.sh false to build and run the tool's JupyterHub Dockerspawner Docker image. This runs a single-user Jupyter Hub server using the jupyterhub.auth.DummyAuthenticator for development testing only.
 
-See the ./ghubhost/tools/alps/middleware/invoke, ./ghubhost/containers/alps/Dockerfile.alps, ./ghubhost/containers/alps/config/start_jupyter.sh, and ./ghubhost/containers/alps/config/supervisord.conf files for more information.
+When the *JupyterHub is now running at...*  message appears, open a web browser and enter the URL: localhost\:8000, sign in with username: ghubuser, password is not required. Log out of the notebook and enter Control-C to stop the server.
 
-#### [Appmode](https://github.com/oschuett/appmode#)
+### gisplot2 tool information
+  
+The ./containers/gisplot2/jupyterhub_dockerspawner/config/jupyterhub_config.py file contains hardcoded absolute paths. These paths will need to be modified. This tool expects a reference directory in ./containers/gisplot2/input-data folder. This setup is for development testing only. The reference directory is stored on Ghub in the /data/groups/ghub/tools directory.
 
-Open a web browser and enter the URL localhost:9999/apps/alps.ipynb, enter the password ghubhost, and login. 
+### Appmode
 
-#### Edit Mode
+Jupyter notebooks open in Appmode (https://github.com/oschuett/appmode#) 
+by default. Click the Edit App and enter Kernel / Restart & Run All for Edit Mode.
 
-Open a web browser and enter the URL localhost:9999/notebooks/alps.ipynb, enter the password ghubhost, login, and select Kernel / Restart & Run All.
+### Tool Execution Environment Notes:
 
-### Close the Jupyter notebook
+Per the HUBzero Tools Administrators document, Ghub Admins are recommended to run HAPI (HUBzero Apps Program Installers) scripts to download, configure, compile, and install software in the tool execution environment. 
 
-Log out of the alps.ipynb Jupyter Notebook and enter Ctrl+C to stop the running Docker container.
+For the Ghub anaconda-7 base environment, the recommended install script is https://github.com/hubzero/hapi/blob/master/scripts/anaconda-7_install_deb10.sh. This install script downloads Anaconda3-2020.11-Linux-x86_64.sh using wget https://help.hubzero.org/app/site/addons/tools/Anaconda3-2020.11-Linux-x86_64.sh. Anaconda3-2020.11-Linux-x86_64.sh installs conda version 4.9.2. Over the years, Ghub Admins have added additional Python packages to the original anaconda-7 base environment. On Ghub, ran a script to get a .yml file for the anaconda-7 base environment, anaconda-7_base_environment.yml. Downloaded a version of Miniconda consistent with Anaconda3-2020.11-Linux-x86_64.sh, from https://repo.anaconda.com/miniconda, Miniconda3-py38_4.9.2-Linux-x86_64.sh. The ./anaconda/Dockerfile.anaconda-7 Dockerfile builds the anaconda-7_base_image Docker image, which is based on the official Debian 10 "buster-slim" Docker image, Miniconda is installed and then updated with Python packages contained in the anaconda-7_base_environment.yml file.
+
+Using JupyterHub 1.5.1. NotebookApp (Legacy): The classic Jupyter Notebook server uses specific routes like /apps/[notebook_name].ipynb for Appmode. When run locally with NotebookApp, these routes work as expected. SingleUserLabApp (JupyterLab/Jupyter Server): In modern JupyterHub deployments (version 2.0 and later), the default single-user server is often based on Jupyter Server and launches JupyterLab, not the legacy NotebookApp. This setup does not inherently recognize the specific /apps/ routing expected by the classic Appmode extension, resulting in a 404 or 500 error.
 
  

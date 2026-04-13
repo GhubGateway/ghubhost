@@ -1,0 +1,44 @@
+#------------------------------------------------------------------------------------------------------------------------------
+# Dockerfile to build a Docker image for running the Ghub gisplot2 Jupyter notebook
+#
+# Component of: Ghub
+# Purpose: Run a Ghub Jupyter Notebook
+# Author: Renette Jones-Ivey
+# Date: April 2026
+#------------------------------------------------------------------------------------------------------------------------------
+
+# ====================================================================
+# System Installations
+# ====================================================================
+
+FROM anaconda-7_base_image:latest
+
+LABEL desc="Ghub gisplot2 jupyter notebook docker image."
+
+# ====================================================================
+# Notebook Configurations
+# ====================================================================
+
+WORKDIR /home/ghubuser
+
+COPY ./tools/gisplot2 /home/ghubuser/gisplot2
+RUN chown -R ghubuser:ghubuser-group /home/ghubuser/gisplot2
+
+COPY ./containers/gisplot2/jupyter_notebook/config/start_jupyter.sh /start_jupyter.sh
+# Contains the jupyter notebook command
+COPY ./containers/gisplot2/jupyter_notebook/config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# User setup
+RUN echo -e "ghubuser ALL=(ALL)       NOPASSWD:ALL\n" >> /etc/sudoers
+
+USER ghubuser
+
+RUN echo -e "export PATH=/home/ghubuser/.pyenv/bin:\$PATH:/usr/lib64/mpich/bin" >> /home/ghubuser/.bashrcƒ
+RUN jupyter trust /home/ghubuser/gisplot2/gisplot2_jupyter.ipynb
+
+WORKDIR /home/ghubuser/gisplot2
+
+# Similar in concept to the Ghub middleware/invoke script's call to /usr/bin/invoke_app start_jupyter.
+CMD ["/start_jupyter.sh"]
+
+

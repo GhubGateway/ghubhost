@@ -12,12 +12,15 @@ echo "conda_choice: "${conda_choice}
 environment=$2
 echo "environment: "$environment
 
-echo "which conda: "$(which conda)
-echo "which python: "$(which python)
+conda=$(which conda)
+echo "conda: "${conda}
+#echo "#conda: "${#conda}
+# Length of /bin/conda = 10
+len=$(( ${#conda} - 10 ))
+#echo "len: "${len}
+conda_root=${conda:0:len}
+echo "conda_root: "${conda_root}
 
-tool_kernel_json_dir="${parent_dir}/share/jupyter/kernels/${environment}"
-
-conda_root=/home/ghubhost/anaconda/${conda_choice}
 tool_env_dir=${conda_root}/envs/${environment}
 tool_kernel_json_dir="${conda_root}/share/jupyter/kernels/${environment}"
 
@@ -26,7 +29,7 @@ conda_env_yml=./${conda_choice}_${environment}_environment.yml
 start1=$(date +%s)
 echo "Creating env "${environment}"..."
 # -n,--name: Name of the environment
-${conda_root}/bin/conda env create --name ${environment} --file ${conda_env_yml}
+${conda} env create --name ${environment} --file ${conda_env_yml}
 end=$(date +%s)
 echo "Env ${environment} created. Elapsed time: $((($end-$start1)/60)) minutes"
 

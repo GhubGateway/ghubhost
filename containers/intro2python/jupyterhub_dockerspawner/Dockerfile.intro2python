@@ -1,0 +1,34 @@
+#------------------------------------------------------------------------------------------------------------------------------
+# Dockerfile to build a Docker image for running the Ghub Intro2Python Jupyter notebook
+#
+# Component of: Ghub
+# Purpose: Run a Ghub Jupyter Notebook
+# Author: Renette Jones-Ivey
+# Date: April 2026
+#------------------------------------------------------------------------------------------------------------------------------
+
+# ====================================================================
+# System Installations
+# ====================================================================
+
+FROM anaconda-7_base_image:latest
+    
+LABEL desc="Ghub Intro2Python jupyter notebook docker image."
+
+# ====================================================================
+# Notebook Configurations
+# ====================================================================
+
+WORKDIR /home/ghubuser
+
+COPY ./tools/Intro2Python /home/ghubuser/intro2python
+RUN chown -R ghubuser:ghubuser-group /home/ghubuser/intro2python
+
+USER ghubuser
+
+RUN jupyter trust /home/ghubuser/intro2python/intro2python.ipynb 
+
+WORKDIR /home/ghubuser/intro2python
+
+# Set the command to run the single-user server when the container starts
+CMD ["jupyterhub-singleuser"]

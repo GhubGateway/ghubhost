@@ -1,0 +1,15 @@
+# Dockerfile.hub - Custom JupyterHub image with DockerSpawner
+FROM jupyterhub/jupyterhub:1.5.1
+
+# Install DockerSpawner and Native Authenticator
+RUN pip install --no-cache-dir \
+    dockerspawner \
+    jupyterhub-nativeauthenticator
+
+# Copy the configuration file
+COPY config/jupyterhub_config.py /srv/jupyterhub/jupyterhub_config.py
+
+# Expose the Hub port
+EXPOSE 8000
+
+CMD ["jupyterhub", "-f", "/srv/jupyterhub/jupyterhub_config.py"]
